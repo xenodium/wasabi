@@ -57,9 +57,8 @@ If you need to start fresh delete the wuzapi database files."
   :type 'string
   :group 'chats-app)
 
-;; FIXME: Remove hardcoded path.
 (defcustom chats-app-wuzapi-command
-  '("/Users/alvaro/stuff/active/code/third_party/wuzapi-sdtdio/wuzapi" "-mode=stdio")
+  '("wuzapi" "-mode=stdio")
   "Command and parameters for the Anthropic Claude client.
 
 The first element is the command name, and the rest are command parameters."
