@@ -534,14 +534,14 @@ REACTIONS is a list of reaction alists with :emoji and :sender keys."
     ;; Intended layout per message:
     ;;
     ;; Mateo 15:32
-    ;;       Hello
+    ;;       Off to granny's
     ;;
     ;; With reactions:
     ;;
     ;; Mateo 15:32
-    ;;       ❤️ (reaction)
-    ;;       George 05:54
-    ;;       Hello
+    ;;       Off to granny's
+    ;;       ❤️ George
+    ;;       ❤️ Paul
     ;;
     (concat sender-padding sender " " (or time "")
             "\n" (make-string col1-width ?\s) " "
