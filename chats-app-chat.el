@@ -32,6 +32,14 @@
 
 (require 'cl-lib)
 
+(declare-function chats-app--log "chats-app")
+(declare-function chats-app--add-action-to-text "chats-app")
+(declare-function chats-app--buffer "chats-app")
+(declare-function chats-app--send-chat-send-text-request "chats-app")
+(declare-function chats-app--send-chat-history-request "chats-app")
+(declare-function chats-app--send-download-video-request "chats-app")
+(declare-function chats-app--send-download-image-request "chats-app")
+
 (defvar-local chats-app-chat--chat (chats-app-chat--make-chat)
   "Alist containing chat information for this buffer.
 Keys:
