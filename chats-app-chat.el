@@ -78,9 +78,9 @@ Keys:
   "RET" #'chats-app-chat-send-input
   "C-a" #'chats-app-chat-beginning-of-line
   "TAB" #'chats-app-chat-next-actionable
+  "S-TAB" #'chats-app-chat-previous-actionable
   "<tab>" #'chats-app-chat-next-actionable
-  "<backtab>" #'chats-app-chat-previous-actionable
-  "S-TAB" #'chats-app-chat-previous-actionable)
+  "<backtab>" #'chats-app-chat-previous-actionable)
 
 ;; Parsing functions - convert protocol structures to internal format
 
@@ -338,37 +338,53 @@ Messages with reactions will have a :reactions field."
 
 ;; UI functions
 
+(defun chats-app-chat--has-actionable-items-p ()
+  "Return non-nil if buffer contains at least one actionable item."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((pos (next-single-property-change (point) 'keymap)))
+      (and pos (get-text-property pos 'keymap)))))
+
+(defun chats-app-chat--get-binding-string (command)
+  "Get the key binding string for COMMAND, or nil if not bound."
+  (when-let ((keys (where-is-internal command chats-app-chat-mode-map)))
+    (propertize (key-description (car keys)) 'face 'help-key-binding)))
+
 (defun chats-app-chat--update-header-line ()
   "Update the header line with chat name and key bindings.
 Shows different bindings depending on whether point is in input area."
-  (let ((bindings (if (chats-app-chat--in-input-area-p)
-                      `((:command chats-app-chat-send-input :description "to send message"))
-                    `((:command chats-app-chat-next-message :description "next")
-                      (:command chats-app-chat-previous-message :description "previous")
-                      (:command chats-app-chat-refresh :description "refresh")
-                      (:command chats-app-chat-quit :description "quit")))))
+  (let* ((in-input-area (chats-app-chat--in-input-area-p))
+         (has-actionables (chats-app-chat--has-actionable-items-p))
+         (title (or (map-elt chats-app-chat--chat :contact-name)
+                    (map-elt chats-app-chat--chat :chat-jid))))
     (setq header-line-format
           (concat
            " "
-           (when-let ((title (or (map-elt chats-app-chat--chat :contact-name)
-                                 (map-elt chats-app-chat--chat :chat-jid))))
+           (when title
              (concat (propertize title 'face 'font-lock-doc-face) " "))
-           (mapconcat
-            #'identity
-            (seq-filter
-             #'identity
-             (mapcar
-              (lambda (binding)
-                (when-let* ((command (map-elt binding :command))
-                            (description (map-elt binding :description))
-                            (keys (where-is-internal command chats-app-chat-mode-map))
-                            (key (key-description (car keys))))
-                  (concat
-                   (propertize key 'face 'help-key-binding)
-                   " "
-                   description)))
-              bindings))
-            " ")))))
+           (if in-input-area
+               ;; In input area
+               (if has-actionables
+                   (concat
+                    (chats-app-chat--get-binding-string #'chats-app-chat-previous-actionable)
+                    "/"
+                    (chats-app-chat--get-binding-string #'chats-app-chat-next-actionable)
+                    " navigation "
+                    (chats-app-chat--get-binding-string #'chats-app-chat-send-input)
+                    " to send message")
+                 ;; No actionables
+                 (concat
+                  (chats-app-chat--get-binding-string #'chats-app-chat-send-input)
+                  " to send message"))
+             ;; Outside input area
+             (mapconcat
+              #'identity
+              (list
+               (concat (chats-app-chat--get-binding-string #'chats-app-chat-next-message) " next")
+               (concat (chats-app-chat--get-binding-string #'chats-app-chat-previous-message) " previous")
+               (concat (chats-app-chat--get-binding-string #'chats-app-chat-refresh) " refresh")
+               (concat (chats-app-chat--get-binding-string #'chats-app-chat-quit) " quit"))
+              " "))))))
 
 (defun chats-app-chat--setup-prompt ()
   "Set up the read-only prompt at the end of the buffer."
@@ -712,7 +728,8 @@ Updates :messages list and :max-sender-width in chat state."
       ;; Restore saved input
       (when (and saved-input (not (string-empty-p saved-input)))
         (goto-char (point-max))
-        (insert saved-input)))))
+        (insert saved-input)))
+    (chats-app-chat--update-header-line)))
 
 (cl-defun chats-app-chat--add-reaction (&key target-id emoji sender)
   "Add a reaction to an existing message with TARGET-ID.
