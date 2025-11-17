@@ -803,7 +803,7 @@ FACE when non-nil applies the specified face to the text."
 
 Error if not found."
   (or (get-buffer "*ChatsApp*")
-      (error "ChatsApp buffer not found")))
+      (user-error "ChatsApp buffer not found (start with M-x chats-app)")))
 
 (defun chats-app-reload ()
   (interactive)
@@ -819,38 +819,38 @@ Error if not found."
 (defun chats-app-new-chat ()
   "Select a contact or group using completing-read and open the chat."
   (interactive)
-  (unless (derived-mode-p 'chats-app-mode)
-    (user-error "Not in a chats buffer"))
-  (message "blah")
-  (let ((contacts (map-elt (chats-app--state) :contacts))
-        (groups (map-elt (chats-app--state) :groups)))
-    (unless (or contacts groups)
-      (user-error "No contacts or groups available"))
-    (if-let* ((available-chats
-               (append
-                ;; Add contacts
-                (mapcar (lambda (contact-entry)
-                          (let* ((jid (symbol-name (car contact-entry)))
-                                 (full-name (map-elt (cdr contact-entry) :full-name))
-                                 (push-name (map-elt (cdr contact-entry) :push-name))
-                                 (display-name (or (and full-name (not (string-empty-p full-name)) full-name)
-                                                   (and push-name (not (string-empty-p push-name)) push-name)
-                                                   jid)))
-                            (cons display-name jid)))
-                        contacts)
-                ;; Add groups
-                (mapcar (lambda (group-entry)
-                          (let* ((jid (symbol-name (car group-entry)))
-                                 (group-info (cdr group-entry))
-                                 (group-name (map-elt group-info :name))
-                                 (display-name (or (and group-name (not (string-empty-p group-name)) group-name)
-                                                   jid)))
-                            (cons display-name jid)))
-                        groups)))
-              (selected-jid (map-elt available-chats (completing-read "New chat with: " available-chats nil t))))
-        (chats-app--send-chat-history-request
-         :chat-jid selected-jid)
-      (user-error "No contact or group found"))))
+  (with-current-buffer (chats-app--buffer)
+    (let ((contacts (map-elt (chats-app--state) :contacts))
+          (groups (map-elt (chats-app--state) :groups)))
+      (unless (or contacts groups)
+        (user-error "No contacts or groups available"))
+      (if-let* ((available-chats
+                 (append
+                  ;; Add contacts
+                  (mapcar (lambda (contact-entry)
+                            (let* ((jid (symbol-name (car contact-entry)))
+                                   (full-name (map-elt (cdr contact-entry) :full-name))
+                                   (push-name (map-elt (cdr contact-entry) :push-name))
+                                   (display-name (or (and full-name (not (string-empty-p full-name)) full-name)
+                                                     (and push-name (not (string-empty-p push-name)) push-name)
+                                                     jid)))
+                              (cons display-name jid)))
+                          contacts)
+                  ;; Add groups
+                  (mapcar (lambda (group-entry)
+                            (let* ((jid (symbol-name (car group-entry)))
+                                   (group-info (cdr group-entry))
+                                   (group-name (map-elt group-info :name))
+                                   (display-name (or (and group-name (not (string-empty-p group-name)) group-name)
+                                                     jid)))
+                              (cons display-name jid)))
+                          groups)))
+                (selected-jid (map-elt available-chats (completing-read "New chat with: " available-chats nil t))))
+          (chats-app--send-chat-history-request
+           :chat-jid selected-jid)
+        (user-error "No contact or group found")))))
+
+(defalias 'chats-app-new-message #'chats-app-new-chat)
 
 (defun chats-app--refresh ()
   "Refresh the display based on current status."
