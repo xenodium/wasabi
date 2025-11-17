@@ -896,17 +896,41 @@ IS-VIDEO if non-nil, overlays a play button on the thumbnail."
          (pad-bottom (or padding-bottom 0))
          (pad-leading (or padding-leading 0))
          (pad-trailing (or padding-trailing 0))
+         ;; Get actual image dimensions
+         (temp-image (create-image image-data image-type t))
+         (image-size (image-size temp-image t))
+         (actual-width (car image-size))
+         (actual-height (cdr image-size))
+         ;; Calculate scaled dimensions that fit within max-width/max-height while preserving aspect ratio
+         (scale-x (/ (float max-width) actual-width))
+         (scale-y (/ (float max-height) actual-height))
+         (scale (min scale-x scale-y 1.0)) ; Don't scale up, only down
+         (display-width (floor (* actual-width scale)))
+         (display-height (floor (* actual-height scale)))
+         ;; Adjust corner radius to match actual display size (don't use full radius on tiny images)
+         (adjusted-radius (min corner-radius (/ display-width 4) (/ display-height 4)))
          (clip-id (format "rounded-%d" (random 1000000)))
          (play-button (when is-video
-                        (format "  <g transform=\"translate(%d,%d)\">
-    <circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"rgba(0,0,0,0.6)\"/>
-    <polygon points=\"%d,%d %d,%d %d,%d\" fill=\"white\"/>
+                        (let* ((center-x (/ display-width 2))
+                               (center-y (/ display-height 2))
+                               ;; Circle radius: 40% of smaller dimension
+                               (circle-radius (* 0.4 (min display-width display-height)))
+                               ;; Triangle size: 40% of circle radius
+                               (triangle-size (* 0.4 circle-radius))
+                               ;; Triangle points (equilateral-ish, pointing right)
+                               (tri-left-x (- center-x (* triangle-size 0.5)))
+                               (tri-right-x (+ center-x triangle-size))
+                               (tri-top-y (- center-y (* triangle-size 0.866))) ; sqrt(3)/2 ≈ 0.866
+                               (tri-bottom-y (+ center-y (* triangle-size 0.866))))
+                          (format "  <g transform=\"translate(%d,%d)\">
+    <circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"rgba(0,0,0,0.6)\"/>
+    <polygon points=\"%.1f,%.1f %.1f,%.1f %.1f,%.1f\" fill=\"white\"/>
   </g>"
-                                pad-leading pad-top
-                                (/ max-width 2) (/ max-height 2) (/ max-width 4)
-                                (- (/ max-width 2) (/ max-width 10)) (- (/ max-height 2) (/ max-height 8))
-                                (+ (/ max-width 2) (/ max-width 8)) (/ max-height 2)
-                                (- (/ max-width 2) (/ max-width 10)) (+ (/ max-height 2) (/ max-height 8)))))
+                                  pad-leading pad-top
+                                  center-x center-y circle-radius
+                                  tri-left-x tri-top-y
+                                  tri-right-x center-y
+                                  tri-left-x tri-bottom-y))))
          (svg-template (format
                         "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"%d\" height=\"%d\">
   <defs>
@@ -918,12 +942,12 @@ IS-VIDEO if non-nil, overlays a play button on the thumbnail."
     <image xlink:href=\"data:image/%s;base64,%s\" x=\"0\" y=\"0\" width=\"%d\" height=\"%d\"/>
   </g>
 %s</svg>"
-                        (+ max-width pad-leading pad-trailing) (+ max-height pad-top pad-bottom)
+                        (+ display-width pad-leading pad-trailing) (+ display-height pad-top pad-bottom)
                         clip-id
-                        max-width max-height corner-radius corner-radius
+                        display-width display-height adjusted-radius adjusted-radius
                         pad-leading pad-top clip-id
                         (symbol-name image-type) base64-data
-                        max-width max-height
+                        display-width display-height
                         (or play-button ""))))
     (create-image svg-template 'svg t)))
 
