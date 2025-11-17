@@ -69,16 +69,18 @@ Keys:
         (cons (cons key value)
               (assq-delete-all key chats-app-chat--chat))))
 
-(defvar chats-app-chat-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q") #'chats-app-chat-quit)
-    (define-key map (kbd "n") #'chats-app-chat-next-message)
-    (define-key map (kbd "p") #'chats-app-chat-previous-message)
-    (define-key map (kbd "g") #'chats-app-chat-refresh)
-    (define-key map (kbd "RET") #'chats-app-chat-send-input)
-    (define-key map (kbd "C-a") #'chats-app-chat-beginning-of-line)
-    map)
-  "Keymap for `chats-app-chat-mode'.")
+(defvar-keymap chats-app-chat-mode-map
+  :doc "Keymap for `chats-app-chat-mode'."
+  "q" #'chats-app-chat-quit
+  "n" #'chats-app-chat-next-message
+  "p" #'chats-app-chat-previous-message
+  "g" #'chats-app-chat-refresh
+  "RET" #'chats-app-chat-send-input
+  "C-a" #'chats-app-chat-beginning-of-line
+  "TAB" #'chats-app-chat-next-actionable
+  "<tab>" #'chats-app-chat-next-actionable
+  "<backtab>" #'chats-app-chat-previous-actionable
+  "S-TAB" #'chats-app-chat-previous-actionable)
 
 ;; Parsing functions - convert protocol structures to internal format
 
@@ -536,6 +538,48 @@ Shows different bindings depending on whether point is in input area."
                              pos))
                 (beginning-of-line)))
           (message "No previous message"))))))
+
+(defun chats-app-chat-next-actionable ()
+  "Move point to the next actionable item (image/video)."
+  (interactive)
+  (unless (derived-mode-p 'chats-app-chat-mode)
+    (error "Not in a chat buffer"))
+  (if (chats-app-chat--in-input-area-p)
+      (user-error "No more left")
+    (let ((start-pos (if (get-text-property (point) 'keymap)
+                         ;; If on an actionable, move past it first
+                         (or (next-single-property-change (point) 'keymap)
+                             (point-max))
+                       (point))))
+      (if-let ((pos (next-single-property-change start-pos 'keymap))
+               (actionable (get-text-property pos 'keymap)))
+          (goto-char pos)
+        (goto-char (point-max))))))
+
+(defun chats-app-chat-previous-actionable ()
+  "Move point to the previous actionable item (image/video).
+If in input area, move to just before the prompt."
+  (interactive)
+  (unless (derived-mode-p 'chats-app-chat-mode)
+    (error "Not in a chat buffer"))
+  (when (and (chats-app-chat--in-input-area-p)
+             chats-app-chat--prompt-marker)
+    (goto-char chats-app-chat--prompt-marker))
+  (let ((start-pos (if (get-text-property (point) 'keymap)
+                       ;; If on an actionable, move before it first
+                       (or (previous-single-property-change (point) 'keymap)
+                           (point-min))
+                     (point))))
+    (if-let* ((pos (previous-single-property-change start-pos 'keymap))
+              (found (and pos (> pos (point-min)))))
+        ;; Move back to find a position that actually has the keymap property
+        (progn
+          (goto-char pos)
+          (unless (get-text-property (point) 'keymap)
+            (let ((prev (previous-single-property-change (point) 'keymap)))
+              (when (and prev (get-text-property prev 'keymap))
+                (goto-char prev)))))
+      (user-error "No more left"))))
 
 (defun chats-app-chat--refresh (messages)
   "Refresh the current chat buffer with internal MESSAGES.
