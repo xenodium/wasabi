@@ -138,7 +138,8 @@ Returns string like \"Hello\" or \"[image]\"."
                                         :max-height 50
                                         :corner-radius 6
                                         :padding-top 5
-                                        :padding-bottom 5))
+                                        :padding-bottom 5
+                                        :is-video t))
                          "[video]")))
       ;; Store metadata as text properties
       (add-text-properties 0 (length video-text)
@@ -879,7 +880,7 @@ MIMETYPE is the image MIME type."
         (goto-char (point-min))))
     (switch-to-buffer photo-buffer)))
 
-(cl-defun chats-app-chat--create-rounded-image (&key image-data image-type max-width max-height corner-radius padding-top padding-bottom padding-leading padding-trailing)
+(cl-defun chats-app-chat--create-rounded-image (&key image-data image-type max-width max-height corner-radius padding-top padding-bottom padding-leading padding-trailing is-video)
   "Create an SVG image with rounded corners containing IMAGE-DATA.
 IMAGE-DATA is the raw image data.
 IMAGE-TYPE is the image type (jpeg, png, etc.).
@@ -888,13 +889,24 @@ CORNER-RADIUS is the radius for rounded corners.
 PADDING-TOP is the top padding (default 0).
 PADDING-BOTTOM is the bottom padding (default 0).
 PADDING-LEADING is the left padding (default 0).
-PADDING-TRAILING is the right padding (default 0)."
+PADDING-TRAILING is the right padding (default 0).
+IS-VIDEO if non-nil, overlays a play button on the thumbnail."
   (let* ((base64-data (base64-encode-string image-data))
          (pad-top (or padding-top 0))
          (pad-bottom (or padding-bottom 0))
          (pad-leading (or padding-leading 0))
          (pad-trailing (or padding-trailing 0))
-         (clip-id "rounded-1")
+         (clip-id (format "rounded-%d" (random 1000000)))
+         (play-button (when is-video
+                        (format "  <g transform=\"translate(%d,%d)\">
+    <circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"rgba(0,0,0,0.6)\"/>
+    <polygon points=\"%d,%d %d,%d %d,%d\" fill=\"white\"/>
+  </g>"
+                                pad-leading pad-top
+                                (/ max-width 2) (/ max-height 2) (/ max-width 4)
+                                (- (/ max-width 2) (/ max-width 10)) (- (/ max-height 2) (/ max-height 8))
+                                (+ (/ max-width 2) (/ max-width 8)) (/ max-height 2)
+                                (- (/ max-width 2) (/ max-width 10)) (+ (/ max-height 2) (/ max-height 8)))))
          (svg-template (format
                         "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"%d\" height=\"%d\">
   <defs>
@@ -905,13 +917,14 @@ PADDING-TRAILING is the right padding (default 0)."
   <g transform=\"translate(%d,%d)\" clip-path=\"url(#%s)\">
     <image xlink:href=\"data:image/%s;base64,%s\" x=\"0\" y=\"0\" width=\"%d\" height=\"%d\"/>
   </g>
-</svg>"
+%s</svg>"
                         (+ max-width pad-leading pad-trailing) (+ max-height pad-top pad-bottom)
                         clip-id
                         max-width max-height corner-radius corner-radius
                         pad-leading pad-top clip-id
                         (symbol-name image-type) base64-data
-                        max-width max-height)))
+                        max-width max-height
+                        (or play-button ""))))
     (create-image svg-template 'svg t)))
 
 (provide 'chats-app-chat)
