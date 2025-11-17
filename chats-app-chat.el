@@ -833,11 +833,13 @@ Displays messages in a two-column format: sender | message."
                      ((string-match "video/x-matroska" mimetype) ".mkv")
                      ((string-match "video/webm" mimetype) ".webm")
                      (t ".mp4")))
-         (temp-file (expand-file-name (concat "chatsapp-video-" file-id extension)
-                                      temporary-file-directory)))
-    (if (file-exists-p temp-file)
+         (media-dir (expand-file-name "media" (chats-app-data-dir)))
+         (media-file (expand-file-name (concat file-id extension) media-dir)))
+    (unless (file-directory-p media-dir)
+      (make-directory media-dir t))
+    (if (file-exists-p media-file)
         ;; File already downloaded, just open it
-        (chats-app-chat--open-video-externally temp-file)
+        (chats-app-chat--open-video-externally media-file)
       ;; Download the video
       (message "Downloading video...")
       (with-current-buffer (chats-app--buffer)
@@ -860,7 +862,7 @@ Displays messages in a two-column format: sender | message."
                                 (or (map-elt error 'message) "unknown"))))))))
 
 (cl-defun chats-app-chat--save-and-play-video (&key data-url mimetype file-sha256)
-  "Save video to temporary file and open with external player.
+  "Save video to media directory and open with external player.
 DATA-URL is the base64-encoded data URL from the backend.
 MIMETYPE is the video MIME type.
 FILE-SHA256 is used to create a unique filename."
@@ -882,9 +884,12 @@ FILE-SHA256 is used to create a unique filename."
                      ((string-match "video/x-matroska" mimetype) ".mkv")
                      ((string-match "video/webm" mimetype) ".webm")
                      (t ".mp4")))
-         (temp-file (expand-file-name (concat "chatsapp-video-" file-id extension)
-                                      temporary-file-directory)))
-    ;; Write video data to temp file
+         (media-dir (expand-file-name "media" (chats-app-data-dir)))
+         (temp-file (expand-file-name (concat file-id extension) media-dir)))
+    ;; Ensure media directory exists
+    (unless (file-directory-p media-dir)
+      (make-directory media-dir t))
+    ;; Write video data to file
     (with-temp-file temp-file
       (set-buffer-multibyte nil)
       (insert video-data))
@@ -911,35 +916,109 @@ FILE-SHA256 is used to create a unique filename."
   (interactive)
   (unless (get-text-property (point) 'image-url)
     (user-error "No image at point"))
-  (message "Downloading image...")
-  (let ((url (get-text-property (point) 'image-url))
-        (direct-path (get-text-property (point) 'image-direct-path))
-        (media-key (get-text-property (point) 'image-media-key))
-        (mimetype (get-text-property (point) 'image-mimetype))
-        (file-enc-sha256 (get-text-property (point) 'image-file-enc-sha256))
-        (file-sha256 (get-text-property (point) 'image-file-sha256))
-        (file-length (get-text-property (point) 'image-file-length))
-        (width (get-text-property (point) 'image-width))
-        (height (get-text-property (point) 'image-height)))
-    (with-current-buffer (chats-app--buffer)
-      (chats-app--send-download-image-request
-       :url url
-       :direct-path direct-path
-       :media-key media-key
-       :mimetype mimetype
-       :file-enc-sha256 file-enc-sha256
-       :file-sha256 file-sha256
-       :file-length file-length
-       :on-success (lambda (response)
-                     (message "Downloading image... done")
-                     (chats-app-chat--display-image-in-buffer
-                      :data-url (map-elt response 'Data)
-                      :mimetype (map-elt response 'Mimetype)
-                      :width width
-                      :height height))
-       :on-failure (lambda (error)
-                     (message "Failed to download image: %s"
-                              (or (map-elt error 'message) "unknown")))))))
+  (let* ((url (get-text-property (point) 'image-url))
+         (direct-path (get-text-property (point) 'image-direct-path))
+         (media-key (get-text-property (point) 'image-media-key))
+         (mimetype (get-text-property (point) 'image-mimetype))
+         (file-enc-sha256 (get-text-property (point) 'image-file-enc-sha256))
+         (file-sha256 (get-text-property (point) 'image-file-sha256))
+         (file-length (get-text-property (point) 'image-file-length))
+         (width (get-text-property (point) 'image-width))
+         (height (get-text-property (point) 'image-height))
+         ;; Check if file already exists in cache
+         (file-id (if file-sha256
+                      (replace-regexp-in-string "[^a-zA-Z0-9]" "" file-sha256)
+                    (format "%d" (random 1000000))))
+         (extension (cond
+                     ((string-match "image/jpeg" mimetype) ".jpg")
+                     ((string-match "image/png" mimetype) ".png")
+                     ((string-match "image/gif" mimetype) ".gif")
+                     ((string-match "image/webp" mimetype) ".webp")
+                     (t ".jpg")))
+         (media-dir (expand-file-name "media" (chats-app-data-dir)))
+         (cached-file (expand-file-name (concat file-id extension) media-dir)))
+    ;; Ensure media directory exists
+    (unless (file-directory-p media-dir)
+      (make-directory media-dir t))
+    (if (file-exists-p cached-file)
+        ;; File already cached, display it directly
+        (chats-app-chat--display-cached-image cached-file width height)
+      ;; Download the image
+      (message "Downloading image...")
+      (with-current-buffer (chats-app--buffer)
+        (chats-app--send-download-image-request
+         :url url
+         :direct-path direct-path
+         :media-key media-key
+         :mimetype mimetype
+         :file-enc-sha256 file-enc-sha256
+         :file-sha256 file-sha256
+         :file-length file-length
+         :on-success (lambda (response)
+                       (message "Downloading image... done")
+                       (chats-app-chat--save-and-display-image
+                        :data-url (map-elt response 'Data)
+                        :mimetype mimetype
+                        :file-path cached-file
+                        :width width
+                        :height height))
+         :on-failure (lambda (error)
+                       (message "Failed to download image: %s"
+                                (or (map-elt error 'message) "unknown"))))))))
+
+(cl-defun chats-app-chat--display-cached-image (file-path width height)
+  "Display cached image from FILE-PATH."
+  (let* ((image-data (with-temp-buffer
+                       (set-buffer-multibyte nil)
+                       (insert-file-contents-literally file-path)
+                       (buffer-string)))
+         (image-type (cond
+                      ((string-suffix-p ".jpg" file-path) 'jpeg)
+                      ((string-suffix-p ".png" file-path) 'png)
+                      ((string-suffix-p ".gif" file-path) 'gif)
+                      ((string-suffix-p ".webp" file-path) 'imagemagick)
+                      (t 'jpeg)))
+         (photo-buffer (get-buffer-create "*ChatsApp photo*")))
+    (with-current-buffer photo-buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (fundamental-mode)
+        (setq buffer-read-only t)
+        (local-set-key (kbd "q") #'quit-window)
+        (insert (propertize "q" 'face 'help-key-binding) " to close")
+        (insert "\n\n")))
+    (switch-to-buffer photo-buffer)
+    ;; Calculate max dimensions based on window size
+    (let* ((win-width (window-pixel-width))
+           (win-height (window-pixel-height))
+           (max-height (- win-height 60))
+           (max-width win-width)
+           (image (create-image image-data image-type t
+                                :max-width max-width
+                                :max-height max-height)))
+      (with-current-buffer photo-buffer
+        (let ((inhibit-read-only t))
+          (goto-char (point-max))
+          (insert (propertize "🌄" 'display image))
+          (insert "\n")
+          (goto-char (point-min)))))))
+
+(cl-defun chats-app-chat--save-and-display-image (&key data-url mimetype file-path width height)
+  "Save image to FILE-PATH and display it.
+DATA-URL is the base64-encoded data URL from the backend.
+MIMETYPE is the image MIME type.
+FILE-PATH is where to save the cached image."
+  (unless data-url
+    (error ":data-url is required"))
+  ;; Extract base64 data from data URL
+  (unless (string-match "data:[^;]+;base64,\\(.*\\)" data-url)
+    (error "Invalid data URL format"))
+  ;; Save to cache
+  (with-temp-file file-path
+    (set-buffer-multibyte nil)
+    (insert (base64-decode-string (match-string 1 data-url))))
+  ;; Display it
+  (chats-app-chat--display-cached-image file-path width height))
 
 (cl-defun chats-app-chat--display-image-in-buffer (&key data-url mimetype width height)
   "Display image in *ChatsApp photo* buffer.
