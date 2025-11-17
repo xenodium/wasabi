@@ -62,6 +62,12 @@ Keys:
         (cons :max-sender-width (or max-sender-width 0))
         (cons :messages (or messages nil))))
 
+(defun chats-app-chat--update-chat (key value)
+  "Update KEY in chats-app-chat--chat with VALUE, preserving other keys."
+  (setq chats-app-chat--chat
+        (cons (cons key value)
+              (assq-delete-all key chats-app-chat--chat))))
+
 (defvar chats-app-chat-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "q") #'chats-app-chat-quit)
@@ -228,24 +234,44 @@ REACTIONS is a hash table of message-id -> list of reactions."
             (:timestamp . ,timestamp)
             (:content . ,content)))))))
 
-(cl-defun chats-app-chat--parse-notification (&key p-message p-info contact-name chat-jid)
+(cl-defun chats-app-chat--parse-notification (&key p-message p-info contact-name chat-jid contacts)
   "Parse protocol notification MESSAGE and INFO into internal message format.
-Returns alist with :sender-name, :timestamp, :content."
-  (let* ((is-from-me (map-elt p-info 'IsFromMe))
-         (sender-name (if is-from-me
-                          "Me"
-                        (or contact-name
-                            (map-elt p-info 'PushName)
-                            (when-let ((sender (map-elt p-info 'Sender)))
-                              (if (string-match "\\([^@]+\\)@" sender)
-                                  (match-string 1 sender)
-                                sender))
-                            chat-jid)))
-         (content (chats-app-chat--parse-content p-message))
-         (timestamp (map-elt p-info 'Timestamp)))
-    `((:sender-name . ,sender-name)
-      (:timestamp . ,timestamp)
-      (:content . ,content))))
+Returns alist with :sender-name, :timestamp, :content.
+For reaction messages, also includes :is-reaction, :target-id, and :emoji."
+  (if-let ((reaction-msg (map-elt p-message 'reactionMessage)))
+      ;; This is a reaction
+      (let* ((target-id (map-nested-elt reaction-msg '(key ID)))
+             (emoji (map-elt reaction-msg 'text))
+             (sender-jid (map-elt p-info 'Sender))
+             (sender-name (if (map-elt p-info 'IsFromMe)
+                              "Me"
+                            (or contact-name
+                                (map-elt p-info 'PushName)
+                                (when sender-jid
+                                  (if (string-match "\\([^@]+\\)@" sender-jid)
+                                      (match-string 1 sender-jid)
+                                    sender-jid))
+                                chat-jid))))
+        `((:is-reaction . t)
+          (:target-id . ,target-id)
+          (:emoji . ,emoji)
+          (:sender . ,sender-name)))
+    ;; Regular message
+    (let* ((is-from-me (map-elt p-info 'IsFromMe))
+           (sender-name (if is-from-me
+                            "Me"
+                          (or contact-name
+                              (map-elt p-info 'PushName)
+                              (when-let ((sender (map-elt p-info 'Sender)))
+                                (if (string-match "\\([^@]+\\)@" sender)
+                                    (match-string 1 sender)
+                                  sender))
+                              chat-jid)))
+           (content (chats-app-chat--parse-content p-message))
+           (timestamp (map-elt p-info 'Timestamp)))
+      `((:sender-name . ,sender-name)
+        (:timestamp . ,timestamp)
+        (:content . ,content)))))
 
 (cl-defun chats-app-chat--parse-reactions (p-messages &key contacts)
   "Parse reactions from P-MESSAGES and return a hash map of message-id -> reactions.
@@ -574,15 +600,13 @@ Updates :messages list and :max-sender-width in chat state."
       (goto-char (point-max))
       (let* ((start (point))
              (sender-width (string-width (map-elt message :sender-name)))
-             (new-max-width (max (or (map-elt chats-app-chat--chat :max-sender-width) 0)
-                                 sender-width)))
-        ;; Update max-sender-width if needed
-        (when (> sender-width (map-elt chats-app-chat--chat :max-sender-width))
-          (map-put! chats-app-chat--chat :max-sender-width new-max-width))
-        ;; Append to messages list
-        (map-put! chats-app-chat--chat :messages
-                  (append (map-elt chats-app-chat--chat :messages)
-                          (list message)))
+             (old-max-width (or (map-elt chats-app-chat--chat :max-sender-width) 0))
+             (new-max-width (max old-max-width sender-width))
+             (updated-messages (append (map-elt chats-app-chat--chat :messages)
+                                       (list message))))
+        ;; Update chat state with new messages and max-width
+        (chats-app-chat--update-chat :max-sender-width new-max-width)
+        (chats-app-chat--update-chat :messages updated-messages)
         ;; Render the message
         (insert (chats-app-chat--render-message
                  :sender-name (map-elt message :sender-name)
@@ -597,6 +621,42 @@ Updates :messages list and :max-sender-width in chat state."
       (when (and saved-input (not (string-empty-p saved-input)))
         (goto-char (point-max))
         (insert saved-input)))))
+
+(cl-defun chats-app-chat--add-reaction (&key target-id emoji sender)
+  "Add a reaction to an existing message with TARGET-ID.
+EMOJI is the reaction emoji, SENDER is the name of who reacted.
+Finds the message in :messages, updates it, and re-renders just that message."
+  (unless (derived-mode-p 'chats-app-chat-mode)
+    (error "Not in a chat buffer"))
+  (if-let* ((target-idx (seq-position (map-elt chats-app-chat--chat :messages)
+                                      target-id
+                                      (lambda (msg id) (string= (map-elt msg :message-id) id))))
+            (target-msg (nth target-idx (map-elt chats-app-chat--chat :messages)))
+            (updated-msg (cons `(:reactions . ,(append (map-elt target-msg :reactions)
+                                                       (list `((:emoji . ,emoji) (:sender . ,sender)))))
+                               (assq-delete-all :reactions (copy-alist target-msg))))
+            (updated-messages (append (seq-take (map-elt chats-app-chat--chat :messages) target-idx)
+                                      (list updated-msg)
+                                      (seq-drop (map-elt chats-app-chat--chat :messages) (1+ target-idx)))))
+      (progn
+        (chats-app-chat--update-chat :messages updated-messages)
+        (let ((inhibit-read-only t))
+          (save-excursion
+            (goto-char (point-min))
+            (dotimes (_ target-idx)
+              (re-search-forward "\n\n" nil t))
+            (when-let ((msg-start (point))
+                       (msg-end (when (re-search-forward "\n\n" nil t)
+                                  (match-beginning 0))))
+              (delete-region msg-start msg-end)
+              (goto-char msg-start)
+              (insert (chats-app-chat--render-message
+                       :sender-name (map-elt updated-msg :sender-name)
+                       :timestamp (map-elt updated-msg :timestamp)
+                       :content (map-elt updated-msg :content)
+                       :max-sender-width (map-elt chats-app-chat--chat :max-sender-width)
+                       :reactions (map-elt updated-msg :reactions)))))))
+    (chats-app--log "Could not find message with ID %s to add reaction" target-id)))
 
 (cl-defun chats-app-chat--start (&key chat-jid messages contact-name)
   "Create and display a chat buffer for CHAT-JID.

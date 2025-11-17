@@ -558,16 +558,24 @@ Calls ON-SUCCESS after contacts are fetched and parsed."
                                     (p-info (map-nested-elt notification '(params event Info)))
                                     (chat-jid (if (symbolp (map-elt p-info 'Chat))
                                                   (symbol-name (map-elt p-info 'Chat))
-                                                (map-elt p-info 'Chat))))
+                                                (map-elt p-info 'Chat)))
+                                    ;; Must capture contacts before with-current-buffer.
+                                    (contacts (map-elt (chats-app--state) :contacts)))
                                (dolist (buffer (buffer-list))
                                  (with-current-buffer buffer
-                                   (when (and (derived-mode-p 'chats-app-chat-mode)
-                                              (equal (map-elt chats-app-chat--chat :chat-jid) chat-jid))
-                                     (let ((message (chats-app-chat--parse-notification
-                                                     :p-message p-message
-                                                     :p-info p-info
-                                                     :contact-name (map-elt chats-app-chat--chat :contact-name)
-                                                     :chat-jid chat-jid)))
+                                   (when-let ((message (and (derived-mode-p 'chats-app-chat-mode)
+                                                            (equal (map-elt chats-app-chat--chat :chat-jid) chat-jid)
+                                                            (chats-app-chat--parse-notification
+                                                             :p-message p-message
+                                                             :p-info p-info
+                                                             :contact-name (map-elt chats-app-chat--chat :contact-name)
+                                                             :chat-jid chat-jid
+                                                             :contacts contacts))))
+                                     (if (map-elt message :is-reaction)
+                                         (chats-app-chat--add-reaction
+                                          :target-id (map-elt message :target-id)
+                                          :emoji (map-elt message :emoji)
+                                          :sender (map-elt message :sender))
                                        (chats-app-chat--append-message message)))))))
                             ((equal (map-elt notification 'method) "HistorySync")
                              (chats-app--log "HistorySync received")
