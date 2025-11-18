@@ -37,9 +37,9 @@
 (require 'wasabi-chat)
 
 (defcustom wasabi-user-token (concat
-                                 (or (user-login-name)
-                                     (error "wasabi: No login name available"))
-                                 "-token")
+                              (or (user-login-name)
+                                  (error "wasabi: No login name available"))
+                              "-token")
   "User token for identifying wuzapi user.
 
 Defaults to (user-login-name) + \"-token\".
@@ -165,8 +165,8 @@ it is required internally by the process.")
                                      :token wasabi-user-token)
                            :on-success (lambda (response)
                                          (wasabi--log "Status check response received: connected=%s logged-in=%s"
-                                                         (map-elt response 'connected)
-                                                         (map-elt response 'loggedIn))
+                                                      (map-elt response 'connected)
+                                                      (map-elt response 'loggedIn))
                                          (map-put! (wasabi--state) :status-checked t)
                                          (cond
                                           ;; Fully connected and logged in - fetch chat index
@@ -214,7 +214,7 @@ it is required internally by the process.")
                                            (string-match-p "already connected" (map-elt error 'message)))
                                       (wasabi--log "Connect request failed: already connected (ignored)")
                                     (wasabi--log "Connect request failed: %s"
-                                                    (map-elt error 'message))
+                                                 (map-elt error 'message))
                                     ;; Display real error
                                     (wasabi--set-status
                                      :type 'error
@@ -251,8 +251,8 @@ it is required internally by the process.")
                                   (funcall on-users-fetched response))
                     :on-failure (lambda (error)
                                   (wasabi--log "Couldn't load user: %s"
-                                                  (or (map-elt error 'message)
-                                                      "Don't know why"))
+                                               (or (map-elt error 'message)
+                                                   "Don't know why"))
                                   (wasabi--set-status
                                    :type 'error
                                    :message (wasabi--refresh-error :message "Couldn't load user")))))
@@ -340,9 +340,9 @@ For a specific chat JID, stores message array in :chats and opens chat buffer."
                                                           chat-jid response))
                                     ;; Parse protocol messages to internal format
                                     (let ((messages (wasabi-chat--parse-messages response
-                                                                                    :chat-jid chat-jid
-                                                                                    :contact-name contact-name
-                                                                                    :contacts (map-elt (wasabi--state) :contacts)))
+                                                                                 :chat-jid chat-jid
+                                                                                 :contact-name contact-name
+                                                                                 :contacts (map-elt (wasabi--state) :contacts)))
                                           ;; TODO: Consolidate buffer creation logic.
                                           (chat-buffer (get-buffer (format "*Wasabi: %s*" (or contact-name chat-jid)))))
                                       (if chat-buffer
@@ -353,14 +353,14 @@ For a specific chat JID, stores message array in :chats and opens chat buffer."
                                             (switch-to-buffer chat-buffer))
                                         ;; Buffer doesn't exist, start new chat
                                         (wasabi-chat--start :chat-jid chat-jid
-                                                               :messages messages
-                                                               :contact-name contact-name))))
+                                                            :messages messages
+                                                            :contact-name contact-name))))
                                    ((and chat-jid (not (equal chat-jid "index")))
                                     ;; Not an "index" request.
                                     ;; Start new chat (no history).
                                     (wasabi-chat--start :chat-jid chat-jid
-                                                           :messages nil ;; no history.
-                                                           :contact-name contact-name)))
+                                                        :messages nil ;; no history.
+                                                        :contact-name contact-name)))
                                   (when on-finished
                                     (funcall on-finished)))
                     :on-failure (lambda (error)
@@ -389,8 +389,8 @@ Calls ON-FAILURE with error if sending fails."
                                       (message "Failed to send message: %s" (or (map-elt error 'message) "unknown"))))))
 
 (cl-defun wasabi--send-download-image-request (&key url direct-path media-key mimetype
-                                                       file-enc-sha256 file-sha256 file-length
-                                                       on-success on-failure)
+                                                    file-enc-sha256 file-sha256 file-length
+                                                    on-success on-failure)
   "Download and decrypt an image from WhatsApp servers.
 Calls ON-SUCCESS with response containing decrypted image data.
 Calls ON-FAILURE with error if download fails."
@@ -416,8 +416,8 @@ Calls ON-FAILURE with error if download fails."
                                       (message "Failed to download image: %s" (or (map-elt error 'message) "unknown"))))))
 
 (cl-defun wasabi--send-download-video-request (&key url direct-path media-key mimetype
-                                                       file-enc-sha256 file-sha256 file-length
-                                                       on-success on-failure)
+                                                    file-enc-sha256 file-sha256 file-length
+                                                    on-success on-failure)
   "Download and decrypt a video from WhatsApp servers.
 Calls ON-SUCCESS with response containing decrypted video data.
 Calls ON-FAILURE with error if download fails."
@@ -527,7 +527,7 @@ Calls ON-SUCCESS after contacts are fetched and parsed."
                       :on-failure (lambda (error)
                                     (wasabi--log "Failed to fetch contacts: %s" (map-elt error 'message))
                                     (wasabi--set-status :type 'error
-                                                           :message (wasabi--refresh-error :message "Failed to fetch contacts"))))))
+                                                        :message (wasabi--refresh-error :message "Failed to fetch contacts"))))))
 
 (cl-defun wasabi--initialize-subscriptions ()
   "Initialize json-rpc subscriptions with SHELL.."
@@ -562,9 +562,9 @@ Calls ON-SUCCESS after contacts are fetched and parsed."
                             ((equal (map-elt notification 'method) "ConnectFailure")
                              (map-put! (wasabi--state) :connected nil)
                              (wasabi--log "Couldn't connect: %s"
-                                             (format "%s" (or (map-nested-elt notification '(params reason))
-                                                              (map-nested-elt notification '(params error))
-                                                              "???")))
+                                          (format "%s" (or (map-nested-elt notification '(params reason))
+                                                           (map-nested-elt notification '(params error))
+                                                           "???")))
                              (wasabi--set-status
                               :type 'error
                               :message (wasabi--refresh-error :message "Couldn't connect")))
@@ -630,12 +630,12 @@ MESSAGE should be a string like \"Failed to connect\"."
                                "^data:image/png;base64," "" base64-data))
                              'png t)))
     (wasabi--set-status :type 'qr
-                           :message (concat
-                                     (propertize
-                                      ;; Pad image string with * so it can be centered in screen.
-                                      (concat (make-string (round (car (image-size image))) ?*) "\n")
-                                      'display image)
-                                     "\nScan from WhatsApp mobile to enable client"))))
+                        :message (concat
+                                  (propertize
+                                   ;; Pad image string with * so it can be centered in screen.
+                                   (concat (make-string (round (car (image-size image))) ?*) "\n")
+                                   'display image)
+                                  "\nScan from WhatsApp mobile to enable client"))))
 
 (cl-defun wasabi--message (&key text)
   "Display centered TEXT centered in current buffer.
@@ -769,8 +769,8 @@ ON-ENTERED is a function to call when the cursor enters the text.
 FACE when non-nil applies the specified face to the text."
   (add-text-properties 0 (length text)
                        `(keymap ,(wasabi--make-action-keymap action)
-                         mouse-face highlight
-                         pointer hand)
+                                mouse-face highlight
+                                pointer hand)
                        text)
   (when on-entered
     (add-text-properties 0 (length text)
@@ -1193,14 +1193,14 @@ Returns list of internal chat entry alists, filtered and sorted."
     (:params . ((adminToken . ,admin-token)))))
 
 (cl-defun wasabi--make-admin-add-user-request (&key admin-token
-                                                       name
-                                                       token
-                                                       events
-                                                       hmac-key
-                                                       expiration
-                                                       history
-                                                       proxy-config
-                                                       s3-config)
+                                                    name
+                                                    token
+                                                    events
+                                                    hmac-key
+                                                    expiration
+                                                    history
+                                                    proxy-config
+                                                    s3-config)
   "Instantiate an \"admin.users.add\" request."
   (unless admin-token (error ":admin-token is required"))
   (unless name (error ":name is required"))
@@ -1237,12 +1237,12 @@ Returns list of internal chat entry alists, filtered and sorted."
     (:params . ((token . ,token)))))
 
 (cl-defun wasabi--make-chat-send-text-request (&key token
-                                                       phone
-                                                       body
-                                                       link-preview
-                                                       id
-                                                       context-info
-                                                       quoted-text)
+                                                    phone
+                                                    body
+                                                    link-preview
+                                                    id
+                                                    context-info
+                                                    quoted-text)
   "Instantiate a \"chat.send.text\" request.
 
   Required parameters:
@@ -1281,13 +1281,13 @@ Returns list of internal chat entry alists, filtered and sorted."
       (:params . ,params))))
 
 (cl-defun wasabi--make-download-image-request (&key token
-                                                       url
-                                                       direct-path
-                                                       media-key
-                                                       mimetype
-                                                       file-enc-sha256
-                                                       file-sha256
-                                                       file-length)
+                                                    url
+                                                    direct-path
+                                                    media-key
+                                                    mimetype
+                                                    file-enc-sha256
+                                                    file-sha256
+                                                    file-length)
   "Instantiate a \"chat.download.image\" request.
 
   Required parameters:
@@ -1319,13 +1319,13 @@ Returns list of internal chat entry alists, filtered and sorted."
                 (FileLength . ,file-length)))))
 
 (cl-defun wasabi--make-download-video-request (&key token
-                                                        url
-                                                        direct-path
-                                                        media-key
-                                                        mimetype
-                                                        file-enc-sha256
-                                                        file-sha256
-                                                        file-length)
+                                                    url
+                                                    direct-path
+                                                    media-key
+                                                    mimetype
+                                                    file-enc-sha256
+                                                    file-sha256
+                                                    file-length)
   "Instantiate a \"chat.download.video\" request.
 
   Required parameters:

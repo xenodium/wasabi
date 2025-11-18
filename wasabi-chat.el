@@ -146,15 +146,15 @@ Returns string like \"Hello\" or \"[image]\"."
       ;; Store metadata as text properties
       (add-text-properties 0 (length video-text)
                            `(video-url ,(map-nested-elt p-message '(videoMessage URL))
-                             video-direct-path ,(map-nested-elt p-message '(videoMessage directPath))
-                             video-media-key ,(map-nested-elt p-message '(videoMessage mediaKey))
-                             video-mimetype ,(map-nested-elt p-message '(videoMessage mimetype))
-                             video-file-enc-sha256 ,(map-nested-elt p-message '(videoMessage fileEncSHA256))
-                             video-file-sha256 ,(map-nested-elt p-message '(videoMessage fileSHA256))
-                             video-file-length ,(map-nested-elt p-message '(videoMessage fileLength))
-                             video-seconds ,(map-nested-elt p-message '(videoMessage seconds))
-                             video-width ,(map-nested-elt p-message '(videoMessage width))
-                             video-height ,(map-nested-elt p-message '(videoMessage height)))
+                                       video-direct-path ,(map-nested-elt p-message '(videoMessage directPath))
+                                       video-media-key ,(map-nested-elt p-message '(videoMessage mediaKey))
+                                       video-mimetype ,(map-nested-elt p-message '(videoMessage mimetype))
+                                       video-file-enc-sha256 ,(map-nested-elt p-message '(videoMessage fileEncSHA256))
+                                       video-file-sha256 ,(map-nested-elt p-message '(videoMessage fileSHA256))
+                                       video-file-length ,(map-nested-elt p-message '(videoMessage fileLength))
+                                       video-seconds ,(map-nested-elt p-message '(videoMessage seconds))
+                                       video-width ,(map-nested-elt p-message '(videoMessage width))
+                                       video-height ,(map-nested-elt p-message '(videoMessage height)))
                            video-text)
       ;; Add action to play video on RET
       (setq video-text (wasabi--add-action-to-text
@@ -219,8 +219,8 @@ REACTIONS is a hash table of message-id -> list of reactions."
           (unless (map-nested-elt p-data '(Message reactionMessage))
             (let* ((p-sender-jid (map-nested-elt p-data '(Info Sender)))
                    (p-sender-name (wasabi-chat--parse-sender-name p-data p-sender-jid
-                                                                      :contacts contacts
-                                                                      :contact-name contact-name)))
+                                                                  :contacts contacts
+                                                                  :contact-name contact-name)))
               (if (and msg-id reactions (map-elt reactions msg-id))
                   `((:message-id . ,msg-id)
                     (:sender-name . ,p-sender-name)
@@ -302,7 +302,7 @@ CONTACTS is used to resolve sender names."
                   (p-target-id (map-nested-elt p-data '(Message reactionMessage key ID)))
                   (p-sender-jid (map-nested-elt p-data '(Info Sender)))
                   (p-sender-name (wasabi-chat--parse-sender-name p-data p-sender-jid
-                                                                     :contacts contacts)))
+                                                                 :contacts contacts)))
         (map-put! reactions p-target-id
                   (cons `((:emoji . ,(map-nested-elt p-data '(Message reactionMessage text)))
                           (:sender . ,p-sender-name))
@@ -317,10 +317,10 @@ Messages with reactions will have a :reactions field."
          (parsed (delq nil
                        (mapcar (lambda (p-msg)
                                  (wasabi-chat--parse-message p-msg
-                                                                :chat-jid chat-jid
-                                                                :contact-name contact-name
-                                                                :contacts contacts
-                                                                :reactions reactions))
+                                                             :chat-jid chat-jid
+                                                             :contact-name contact-name
+                                                             :contacts contacts
+                                                             :reactions reactions))
                                (append p-messages nil)))))
     (sort parsed
           (lambda (a b)
@@ -477,8 +477,8 @@ Shows different bindings depending on whether point is in input area."
        :on-failure (lambda (error)
                      (message "Failed to send")
                      (wasabi--log "Failed to send message: %s"
-                                     (or (map-elt error 'message)
-                                         "unknown error"))
+                                  (or (map-elt error 'message)
+                                      "unknown error"))
                      ;; Restore cleared input
                      (with-current-buffer chat-buffer
                        (goto-char (point-max))
@@ -809,7 +809,7 @@ Displays messages in a two-column format: sender | message."
       (unless (derived-mode-p 'wasabi-chat-mode)
         (wasabi-chat-mode))
       (setq wasabi-chat--chat (wasabi-chat--make-chat :chat-jid chat-jid
-                                                            :contact-name contact-name))
+                                                      :contact-name contact-name))
       (wasabi-chat--refresh messages)
       (goto-char (point-max)))
 
