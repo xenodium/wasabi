@@ -1,4 +1,5 @@
 #+TITLE: Wasabi
+✨[[https://github.com/sponsors/xenodium][sponsor]]✨.
 
 [[file:./icon/wasabi_x200.png]]
 
@@ -16,7 +17,7 @@ Soon. At the moment, it's under development. Stay tuned.
 
 Yes, please. It's been a lot of work so far and there's plenty more to do.
 
-This project needs funding. Make the work sustainable by sponsoring.
+This project needs funding. Make the work sustainable by ✨[[https://github.com/sponsors/xenodium][sponsoring]]✨.
 
 You can learn more about [[https://xenodium.com/want-a-whatsapp-emacs-client][my plans in this post]].
 
