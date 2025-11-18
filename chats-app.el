@@ -963,7 +963,7 @@ With prefix argument, prompt for a phone number to chat with directly."
 (defun chats-app-open-data-directory ()
   "Open data directory (database, media, etc)."
   (interactive)
-  (find-file chats-app-data-dir))
+  (find-file (chats-app-data-dir)))
 
 (defalias 'chats-app-new-message #'chats-app-new-chat)
 
