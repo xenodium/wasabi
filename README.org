@@ -2,7 +2,8 @@
 ✨[[https://github.com/sponsors/xenodium][sponsor this project]]✨
 
 [[file:./icon/wasabi_x200.png]]
-わさび
+
+** わさび
 
 * About
 
