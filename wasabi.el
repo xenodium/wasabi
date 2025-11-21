@@ -1113,45 +1113,51 @@ With prefix argument NEW-NUMBER, prompt for a phone number."
 
 (defun wasabi--refresh ()
   "Refresh the display based on current status."
-  (save-excursion
-    (let* ((status (map-elt (wasabi--state) :status))
-           (chats-index (map-elt (wasabi--state) :chats-index)))
-      (cond
-       ;; Only render chat list when status is 'ready
-       ((eq (map-elt status :type) 'ready)
-        (if (null chats-index)
-            ;; No chats available - show empty state
-            (let ((inhibit-read-only t))
-              (erase-buffer)
-              (wasabi--message :text "No recent chats\n\nPress 'c' to start a new chat"))
-          ;; Render chat list
-          (let* ((max-name-width (apply #'max
-                                        (mapcar (lambda (chat) (string-width (map-elt chat :display-name)))
-                                                chats-index)))
-                 ;; Format with aligned columns and add actions
-                 (chat-lines
-                  (mapcar
-                   (lambda (chat)
-                     (wasabi--add-action-to-text
-                      ;; Recent contact line
-                      (concat (map-elt chat :display-name)
-                              ;; padding
-                              (make-string (- max-name-width (string-width (map-elt chat :display-name))) ?\s)
-                              (when (map-elt chat :is-group)
-                                (propertize " (group)" 'face 'font-lock-comment-face)))
-                      (lambda ()
-                        (interactive)
-                        (wasabi--send-chat-history-request
-                         :chat-jid (map-elt chat :chat-jid)
-                         :contact-name (map-elt chat :display-name)))))
-                   chats-index)))
-            (let ((inhibit-read-only t))
-              (erase-buffer)
-              (insert "\n")
-              (insert (mapconcat #'identity chat-lines "\n"))))))
-       ((map-elt status :message)
-        (wasabi--log "Unknown status while refreshing: %s"
-                     (map-elt status :message)))))))
+  (let* ((status (map-elt (wasabi--state) :status))
+         (chats-index (map-elt (wasabi--state) :chats-index))
+         ;; Save position
+         (saved-line (line-number-at-pos))
+         (saved-col (current-column)))
+    (cond
+     ;; Only render chat list when status is 'ready
+     ((eq (map-elt status :type) 'ready)
+      (if (null chats-index)
+          ;; No chats available - show empty state
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (wasabi--message :text "No recent chats\n\nPress 'c' to start a new chat"))
+        ;; Render chat list
+        (let* ((max-name-width (apply #'max
+                                      (mapcar (lambda (chat) (string-width (map-elt chat :display-name)))
+                                              chats-index)))
+               ;; Format with aligned columns and add actions
+               (chat-lines
+                (mapcar
+                 (lambda (chat)
+                   (wasabi--add-action-to-text
+                    ;; Recent contact line
+                    (concat (map-elt chat :display-name)
+                            ;; padding
+                            (make-string (- max-name-width (string-width (map-elt chat :display-name))) ?\s)
+                            (when (map-elt chat :is-group)
+                              (propertize " (group)" 'face 'font-lock-comment-face)))
+                    (lambda ()
+                      (interactive)
+                      (wasabi--send-chat-history-request
+                       :chat-jid (map-elt chat :chat-jid)
+                       :contact-name (map-elt chat :display-name)))))
+                 chats-index)))
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (insert "\n")
+            (insert (mapconcat #'identity chat-lines "\n")))
+          ;; Restore point position
+          (goto-char (point-min))
+          (forward-line (1- saved-line))
+          (move-to-column saved-col))))
+     ((map-elt status :message)
+      ;; Not ready yet, display centered message.
+      (wasabi--message :text (map-elt status :message))))))
 
 (defun wasabi--state ()
   "Get shell state or fail in an incompatible buffer."
