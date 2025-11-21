@@ -1149,9 +1149,9 @@ With prefix argument NEW-NUMBER, prompt for a phone number."
               (erase-buffer)
               (insert "\n")
               (insert (mapconcat #'identity chat-lines "\n"))))))
-       ;; For all other statuses, show the message
        ((map-elt status :message)
-        (wasabi--message :text (map-elt status :message)))))))
+        (wasabi--log "Unknown status while refreshing: %s"
+                     (map-elt status :message)))))))
 
 (defun wasabi--state ()
   "Get shell state or fail in an incompatible buffer."
