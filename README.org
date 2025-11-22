@@ -15,7 +15,7 @@ Soon. At the moment, it's under development. Stay tuned.
 
 * Can I fund it?
 
-Yes, please. It's been a lot of work so far and there's plenty more to do.
+Yes, please. It's been a lot of work so far and there's plenty more to do. Read more about the plan in the [[https://xenodium.com/want-a-whatsapp-emacs-client][blog post]].
 
 This project needs funding. Make the work sustainable by ✨[[https://github.com/sponsors/xenodium][sponsoring]]✨.
 
