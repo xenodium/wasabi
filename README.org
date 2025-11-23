@@ -4,7 +4,7 @@
 
 * Wasabi (わさび)
 
-Wasabi is a native Emacs interface for [[https://www.whatsapp.com/][WhatsApp]] messaging.
+A native Emacs interface for [[https://www.whatsapp.com/][WhatsApp]] messaging.
 
 Powered by [[https://github.com/asternic/wuzapi][wuzapi]] and [[https://github.com/tulir/whatsmeow][whatsmeow]] over standard I/O (json-rpc).
 
