@@ -1111,6 +1111,70 @@ With prefix argument NEW-NUMBER, prompt for a phone number."
 
 (defalias 'wasabi-new-message #'wasabi-new-chat)
 
+(defun wasabi--group-chats-by-date (chats-index)
+  "Group CHATS-INDEX by date labels (Today, Yesterday, or date).
+Returns list of (date-label . chats-for-that-date)."
+  (let ((date-groups '())
+        (today (decode-time))
+        (yesterday (decode-time (time-subtract nil (* 24 60 60)))))
+    (dolist (chat chats-index)
+      (let* ((timestamp (when (map-elt chat :last-updated)
+                          (condition-case nil
+                              (parse-iso8601-time-string (map-elt chat :last-updated))
+                            (error nil))))
+             (date-time (when timestamp
+                          (decode-time timestamp)))
+             (date-label (if date-time
+                             (cond
+                              ;; Today
+                              ((and (= (decoded-time-year date-time)
+                                       (decoded-time-year today))
+                                    (= (decoded-time-month date-time)
+                                       (decoded-time-month today))
+                                    (= (decoded-time-day date-time)
+                                       (decoded-time-day today)))
+                               "Today")
+                              ;; Yesterday
+                              ((and (= (decoded-time-year date-time)
+                                       (decoded-time-year yesterday))
+                                    (= (decoded-time-month date-time)
+                                       (decoded-time-month yesterday))
+                                    (= (decoded-time-day date-time)
+                                       (decoded-time-day yesterday)))
+                               "Yesterday")
+                              ;; Other dates - format as "Month Day"
+                              (t
+                               (format-time-string "%B %e" timestamp)))
+                           ;; No timestamp - use "Sometime"
+                           "Sometime"))
+             (date-group (map-elt date-groups date-label)))
+        (if date-group
+            ;; Append/modify existing group.
+            (setcdr date-group (append (cdr date-group) (list chat)))
+          ;; Create new group
+          (push (cons date-label (list chat)) date-groups))))
+    (nreverse date-groups)))
+
+(cl-defun wasabi--format-chat-preview (&key display-name is-group last-updated)
+  "Format a chat preview line for the chats list.
+
+DISPLAY-NAME is the contact/group name.
+IS-GROUP indicates if this is a group chat.
+LAST-UPDATED is the ISO timestamp string."
+  (let ((time-str (when last-updated
+                    (condition-case nil
+                        (format-time-string "%H:%M" (parse-iso8601-time-string last-updated))
+                      (error "")))))
+    (concat (if is-group
+                (propertize "G" 'face 'success)
+              " ")
+            " "
+            (if time-str
+                (propertize time-str 'face 'font-lock-comment-face)
+              "     ")
+            " "
+            display-name)))
+
 (defun wasabi--refresh ()
   "Refresh the display based on current status."
   (let* ((status (map-elt (wasabi--state) :status))
@@ -1125,34 +1189,40 @@ With prefix argument NEW-NUMBER, prompt for a phone number."
           ;; No chats available - show empty state
           (let ((inhibit-read-only t))
             (erase-buffer)
-            (wasabi--message :text "No recent chats\n\nPress 'c' to start a new chat"))
+            (wasabi--message :text
+                             (concat
+                              "No recent chats"
+                              "\n\n"
+                              (propertize "c" 'face 'help-key-binding)
+                              " "
+                              "to start a new chat")))
         ;; Render chat list
-        (let* ((max-name-width (apply #'max
-                                      (mapcar (lambda (chat) (string-width (map-elt chat :display-name)))
-                                              chats-index)))
-               ;; Format with aligned columns and add actions
-               (chat-lines
-                (mapcar
-                 (lambda (chat)
-                   (wasabi--add-action-to-text
-                    ;; Recent contact line
-                    (propertize
-                     (concat (map-elt chat :display-name)
-                             ;; padding
-                             (make-string (- max-name-width (string-width (map-elt chat :display-name))) ?\s)
-                             (when (map-elt chat :is-group)
-                               (propertize " (group)" 'face 'font-lock-comment-face)))
-                     'wasabi-chat-jid (map-elt chat :chat-jid))
-                    (lambda ()
-                      (interactive)
-                      (wasabi--send-chat-history-request
-                       :chat-jid (map-elt chat :chat-jid)
-                       :contact-name (map-elt chat :display-name)))))
-                 chats-index)))
+        (let ((sections (mapcar
+                         (lambda (date-group)
+                           (let* ((date-label (car date-group))
+                                  (chats (cdr date-group))
+                                  (chat-lines
+                                   (mapcar
+                                    (lambda (chat)
+                                      (wasabi--add-action-to-text
+                                       (wasabi--format-chat-preview
+                                        :display-name (map-elt chat :display-name)
+                                        :is-group (map-elt chat :is-group)
+                                        :last-updated (map-elt chat :last-updated))
+                                       (lambda ()
+                                         (interactive)
+                                         (wasabi--send-chat-history-request
+                                          :chat-jid (map-elt chat :chat-jid)
+                                          :contact-name (map-elt chat :display-name)))))
+                                    chats)))
+                             (concat (propertize date-label 'face 'bold)
+                                     "\n\n"
+                                     (mapconcat #'identity chat-lines "\n"))))
+                         (wasabi--group-chats-by-date chats-index))))
           (let ((inhibit-read-only t))
             (erase-buffer)
             (insert "\n")
-            (insert (mapconcat #'identity chat-lines "\n")))
+            (insert (mapconcat #'identity sections "\n\n")))
           ;; Restore point position
           (goto-char (point-min))
           (forward-line (1- saved-line))
