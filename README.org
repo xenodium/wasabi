@@ -52,7 +52,7 @@ You can move it to a location in your PATH or add =wuzapi='s location to Emacs's
 
 ** Install =wasabi=
 
-=Wasabi= isn't on MELPA just yet. You'll need to install it from it GitHub repo.
+=Wasabi= isn't on MELPA just yet. You'll need to install it from it's GitHub repo.
 
 You can use something like:
 
