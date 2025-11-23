@@ -735,14 +735,14 @@ FORMAT-STRING and ARGS like `message'."
 
 (cl-defun wasabi--refresh-error (&key message)
   "Return error MESSAGE with refresh instructions.
-If refresh keybinding exists, appends \"\\n\\n<keybinding> to retry\".
+If refresh keybinding exists, appends \"\\n\\n<keybinding> to reload\".
 Otherwise returns just the message.
 
 MESSAGE should be a string like \"Failed to connect\"."
   (if-let ((key (car (where-is-internal 'wasabi-reload))))
       (concat message "\n\n"
               (propertize (key-description key) 'face 'help-key-binding)
-              " to retry")
+              " to reload")
     message))
 
 (defun wasabi--display-qr-code (base64-data)
@@ -940,7 +940,7 @@ FACE when non-nil applies the specified face to the text."
   "Update the header line for the main chats app buffer."
   (let ((bindings `((:command wasabi-new-chat :description "new chat")
                     (:command wasabi-new-chat-new-number :description "new number")
-                    (:command wasabi-reload :description "refresh")
+                    (:command wasabi-reload :description "reload")
                     (:command wasabi-quit :description "quit"))))
     (setq header-line-format
           (concat
