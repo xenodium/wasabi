@@ -1136,11 +1136,13 @@ With prefix argument NEW-NUMBER, prompt for a phone number."
                  (lambda (chat)
                    (wasabi--add-action-to-text
                     ;; Recent contact line
-                    (concat (map-elt chat :display-name)
-                            ;; padding
-                            (make-string (- max-name-width (string-width (map-elt chat :display-name))) ?\s)
-                            (when (map-elt chat :is-group)
-                              (propertize " (group)" 'face 'font-lock-comment-face)))
+                    (propertize
+                     (concat (map-elt chat :display-name)
+                             ;; padding
+                             (make-string (- max-name-width (string-width (map-elt chat :display-name))) ?\s)
+                             (when (map-elt chat :is-group)
+                               (propertize " (group)" 'face 'font-lock-comment-face)))
+                     'wasabi-chat-jid (map-elt chat :chat-jid))
                     (lambda ()
                       (interactive)
                       (wasabi--send-chat-history-request
