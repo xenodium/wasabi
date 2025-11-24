@@ -12,21 +12,17 @@ Powered by [[https://github.com/asternic/wuzapi][wuzapi]] and [[https://github.c
 
 [[file:screenshots/chat.png]]
 
-* Can I use it?
-
-Soon. At the moment, it's under development. Stay tuned.
-
 * Can I fund it?
 
-Yes, please. It's been a lot of work so far and there's plenty more to do. Read more about the plan in the [[https://xenodium.com/want-a-whatsapp-emacs-client][blog post]].
+Yes, please. It's been a lot of work to get this far and there's plenty more to do.
 
 This project needs funding. Make the work sustainable by ✨[[https://github.com/sponsors/xenodium][sponsoring]]✨.
 
-You can learn more about [[https://xenodium.com/want-a-whatsapp-emacs-client][plans in this post]].
+Read more about plans in this [[https://xenodium.com/want-a-whatsapp-emacs-client][blog post]].
 
 * Setup
 
-** Install =wuzapi= dependency
+**  =wuzapi= dependency
 
 You'll need [[https://github.com/asternic/wuzapi][wuzapi]].
 
