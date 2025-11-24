@@ -62,7 +62,7 @@ You can use something like:
     :vc (:url "https://github.com/xenodium/wasabi"))
 #+end_src
 
-** Note: =Wasabi= currently depends on [[https://github.com/xenodium/acp.el][acp.el]] (available on [[https://melpa.org/#/acp][MELPA]]) for its [[https://www.jsonrpc.org/specification][json-rpc]] implementation.
+/Note: =Wasabi= currently depends on [[https://github.com/xenodium/acp.el][acp.el]] (available on [[https://melpa.org/#/acp][MELPA]]) for its [[https://www.jsonrpc.org/specification][json-rpc]] implementation./
 
 * Run
 
