@@ -901,9 +901,10 @@ FILE-SHA256 is used to create a unique filename."
     (unless (file-directory-p media-dir)
       (make-directory media-dir t))
     ;; Write video data to file
-    (with-temp-file temp-file
-      (set-buffer-multibyte nil)
-      (insert video-data))
+    (let ((coding-system-for-write 'binary))
+      (with-temp-file temp-file
+        (set-buffer-multibyte nil)
+        (insert video-data)))
     (wasabi-chat--open-video-externally temp-file)))
 
 (defun wasabi-chat--open-video-externally (file-path)
