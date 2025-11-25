@@ -983,6 +983,7 @@ FACE when non-nil applies the specified face to the text."
     (error "Not in a chats buffer"))
   (quit-restore-window (get-buffer-window (current-buffer)) 'kill))
 
+;;;###autoload
 (defun wasabi ()
   "Create or switch to the `*Wasabi*` buffer in `wasabi-mode`."
   (interactive)
