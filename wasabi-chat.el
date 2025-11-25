@@ -1026,9 +1026,10 @@ FILE-PATH is where to save the cached image."
   (unless (string-match "data:[^;]+;base64,\\(.*\\)" data-url)
     (error "Invalid data URL format"))
   ;; Save to cache
-  (with-temp-file file-path
-    (set-buffer-multibyte nil)
-    (insert (base64-decode-string (match-string 1 data-url))))
+  (let ((coding-system-for-write 'binary))
+    (with-temp-file file-path
+      (set-buffer-multibyte nil)
+      (insert (base64-decode-string (match-string 1 data-url)))))
   ;; Display it
   (wasabi-chat--display-cached-image file-path width height))
 
