@@ -77,6 +77,7 @@ Keys:
   "p" #'wasabi-chat-previous-message
   "g" #'wasabi-chat-refresh
   "RET" #'wasabi-chat-send-input
+  "r" #'wasabi-chat-react
   "C-a" #'wasabi-chat-beginning-of-line
   "TAB" #'wasabi-chat-next-actionable
   "S-TAB" #'wasabi-chat-previous-actionable
@@ -506,6 +507,51 @@ Shows different bindings depending on whether point is in input area."
                            (recenter (- -1 (min (max 0 scroll-margin)
 		                                (truncate (/ (window-body-height) 4.0)))) t)))))))))
 
+(defun wasabi-chat-react ()
+  "React to the message at point with an emoji."
+  (interactive)
+  (unless (derived-mode-p 'wasabi-chat-mode)
+	(error "Not in a chat buffer"))
+  (if (wasabi-chat--in-input-area-p)
+	  (self-insert-command 1)
+	(if-let ((pos (if (get-text-property (point) 'wasabi-sender)
+					  (point)
+					(wasabi-chat-find-previous-message))))
+		(let* ((char-list (let (result)
+							(maphash (lambda (key value)
+									   (push (cons (format "%s (%c)" key value) value) result))
+									 (ucs-names))
+							result))
+			   (char-name (completing-read "Choose reaction: " char-list))
+			   (reaction (string (cdr (assoc char-name char-list))))
+			   (chat-jid (map-elt wasabi-chat--chat :chat-jid))
+			   (id (get-text-property pos 'wasabi-message-id))
+			   (target-idx (seq-position (map-elt wasabi-chat--chat :messages)
+										 id
+										 (lambda (msg id) (string= (map-elt msg :message-id) id))))
+               (target-msg (nth target-idx (map-elt wasabi-chat--chat :messages)))
+               (sender (map-elt target-msg :sender-name))
+			   (chat-buffer (current-buffer)))
+		  (with-current-buffer (wasabi--buffer)
+			(wasabi--send-chat-react-request
+			 :phone chat-jid
+			 :body reaction
+			 :id id
+			 :on-failure (lambda (error)
+						   (message "Failed to send reaction.")
+						   (wasabi--log "Failed to send reaction: %s"
+										(or (map-elt error 'message)
+											"unknown error")))
+			 :on-success (lambda (response)
+						   (with-current-buffer chat-buffer
+							 (wasabi-chat--add-reaction
+							  :target-id id
+							  :emoji reaction
+							  :sender sender))))))
+	  (error "No message found to react to"))))
+
+
+
 (defun wasabi-chat-refresh ()
   "Refresh the current chat buffer by fetching new messages."
   (interactive)
@@ -524,6 +570,25 @@ Shows different bindings depending on whether point is in input area."
          :on-finished (lambda ()
                         (message "Refreshed")))))))
 
+(defun wasabi-chat-find-next-message ()
+  "Find the position of the next message (sender line)."
+  ;; First, skip past the current sender if we're on one
+  (let ((start-pos (save-excursion
+                     (end-of-line)
+                     (if (get-text-property (point) 'wasabi-sender)
+                         (or (next-single-property-change (point) 'wasabi-sender)
+                             (point-max))
+                       (point)))))
+    ;; Then find the next sender
+    (let ((pos (next-single-property-change start-pos 'wasabi-sender)))
+      (if (and pos (get-text-property pos 'wasabi-sender))
+          (save-excursion
+            (goto-char pos)
+            (beginning-of-line)
+			(point))
+        ;; If at last message, bump to prompt.
+        (point-max)))))
+
 (defun wasabi-chat-next-message ()
   "Jump to the next message (sender line)."
   (interactive)
@@ -531,21 +596,30 @@ Shows different bindings depending on whether point is in input area."
     (error "Not in a chat buffer"))
   (if (wasabi-chat--in-input-area-p)
       (self-insert-command 1)
-    ;; First, skip past the current sender if we're on one
-    (let ((start-pos (save-excursion
-                       (end-of-line)
-                       (if (get-text-property (point) 'wasabi-sender)
-                           (or (next-single-property-change (point) 'wasabi-sender)
-                               (point-max))
-                         (point)))))
-      ;; Then find the next sender
-      (let ((pos (next-single-property-change start-pos 'wasabi-sender)))
-        (if (and pos (get-text-property pos 'wasabi-sender))
-            (progn
-              (goto-char pos)
-              (beginning-of-line))
-          ;; If at last message, bump to prompt.
-          (goto-char (point-max)))))))
+    (goto-char (wasabi-chat-find-next-message))))
+
+(defun wasabi-chat-find-previous-message ()
+  "Find the position of the previous message (sender line)."
+  ;; First, skip to the start of current sender if we're in the middle of one
+  (let ((start-pos (if (get-text-property (point) 'wasabi-sender)
+                       (or (previous-single-property-change (point) 'wasabi-sender)
+                           (point-min))
+                     (point))))
+    ;; Then find the previous sender
+    (let ((pos (previous-single-property-change start-pos 'wasabi-sender)))
+      (if pos
+          ;; Move to the start of that sender region
+          (let ((sender-start (or (previous-single-property-change pos 'wasabi-sender)
+                                  (point-min))))
+            (save-excursion
+              (goto-char (if (get-text-property sender-start 'wasabi-sender)
+                             sender-start
+                           pos))
+              (beginning-of-line)
+			  (point)))
+        (message "No previous message")
+		nil))))
+
 
 (defun wasabi-chat-previous-message ()
   "Jump to the previous message (sender line)."
@@ -554,23 +628,8 @@ Shows different bindings depending on whether point is in input area."
     (error "Not in a chat buffer"))
   (if (wasabi-chat--in-input-area-p)
       (self-insert-command 1)
-    ;; First, skip to the start of current sender if we're in the middle of one
-    (let ((start-pos (if (get-text-property (point) 'wasabi-sender)
-                         (or (previous-single-property-change (point) 'wasabi-sender)
-                             (point-min))
-                       (point))))
-      ;; Then find the previous sender
-      (let ((pos (previous-single-property-change start-pos 'wasabi-sender)))
-        (if pos
-            ;; Move to the start of that sender region
-            (let ((sender-start (or (previous-single-property-change pos 'wasabi-sender)
-                                    (point-min))))
-              (progn
-                (goto-char (if (get-text-property sender-start 'wasabi-sender)
-                               sender-start
-                             pos))
-                (beginning-of-line)))
-          (message "No previous message"))))))
+	(when-let ((pos (wasabi-chat-find-previous-message)))
+	  (goto-char pos))))
 
 (defun wasabi-chat-next-actionable ()
   "Move point to the next actionable item (image/video)."

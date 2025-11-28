@@ -517,6 +517,31 @@ Calls ON-FAILURE with error if sending fails."
                                     (lambda (error)
                                       (message "Failed to send message: %s" (or (map-elt error 'message) "unknown"))))))
 
+(cl-defun wasabi--send-chat-react-request (&key phone body id on-success on-failure)
+  "Send a reaction to message ID to PHONE with BODY .
+Calls ON-SUCCESS when message is sent successfully.
+Calls ON-FAILURE with error if sending fails."
+  (unless (derived-mode-p 'wasabi-mode 'wasabi-chat-mode)
+    (error "Not in a chats buffer"))
+  (unless phone
+    (error ":phone is required"))
+  (unless body
+    (error ":body is required"))
+  (unless id
+    (error ":id is required"))
+  (acp-send-request :client (map-elt (wasabi--state) :client)
+                    :request (wasabi--make-chat-react-request
+                              :token wasabi-user-token
+                              :phone phone
+                              :body body
+							  :id id)
+                    :on-success (or on-success
+                                    (lambda (_response)
+                                      (message "Reaction sent")))
+                    :on-failure (or on-failure
+                                    (lambda (error)
+                                      (message "Failed to send reaction: %s" (or (map-elt error 'message) "unknown"))))))
+
 (cl-defun wasabi--send-download-image-request (&key url direct-path media-key mimetype
                                                     file-enc-sha256 file-sha256 file-length
                                                     on-success on-failure)
@@ -1524,6 +1549,48 @@ Optional parameters:
     (when quoted-text
       (push `(QuotedText . ,quoted-text) params))
     `((:method . "chat.send.text")
+      (:params . ,params))))
+
+(cl-defun wasabi--make-chat-react-request (&key token
+                                                phone
+                                                body
+												id
+                                                link-preview
+                                                context-info)
+  "Instantiate a \"chat.react\" request.
+
+  Required parameters:
+    TOKEN - User authentication token
+    PHONE - Phone number with country code or group JID
+    BODY - Reaction text content
+    ID - Message ID to react to
+
+  Optional parameters:
+    LINK-PREVIEW - Enable link preview for URLs (boolean)
+    CONTEXT-INFO - Context object with :stanza-id and :participant
+    QUOTED-TEXT - Text to quote from another message
+
+  Sends a reaction to a existing message. Requires
+  an active WhatsApp session (connected and logged in).
+
+  See: stdio.go:196, handlers.go (sendHandler)"
+  (unless token
+    (error ":token is required"))
+  (unless phone
+    (error ":phone is required"))
+  (unless body
+    (error ":body is required"))
+  (unless id
+    (error ":id is required"))
+  (let ((params `((token . ,token)
+                  (Phone . ,phone)
+                  (Body . ,body)
+				  (Id . ,id))))
+    (when link-preview
+      (push `(LinkPreview . ,link-preview) params))
+    (when context-info
+      (push `(ContextInfo . ,context-info) params))
+    `((:method . "chat.react")
       (:params . ,params))))
 
 (cl-defun wasabi--make-download-image-request (&key token
