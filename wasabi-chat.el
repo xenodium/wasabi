@@ -83,10 +83,6 @@ Keys:
   "<tab>" #'wasabi-chat-next-actionable
   "<backtab>" #'wasabi-chat-previous-actionable)
 
-(when (featurep 'evil)
-  (evil-define-key 'normal wasabi-chat-mode-map (kbd "TAB") 'wasabi-chat-next-actionable))
-  (evil-define-key 'normal wasabi-chat-mode-map (kbd "S-TAB") 'wasabi-chat-previous-actionable)
-
 ;; Parsing functions - convert protocol structures to internal format
 
 (defun wasabi-chat--parse-content (p-message)
@@ -1007,8 +1003,6 @@ FILE-SHA256 is used to create a unique filename."
         (fundamental-mode)
         (setq buffer-read-only t)
         (local-set-key (kbd "q") #'quit-window)
-        (when (featurep 'evil)
-          (evil-local-set-key 'normal (kbd "q") #'quit-window))
         (insert (propertize "q" 'face 'help-key-binding) " to close")
         (insert "\n\n")))
     (switch-to-buffer photo-buffer)
