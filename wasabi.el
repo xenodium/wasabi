@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/wasabi
-;; Version: 0.2.1
+;; Version: 0.3.1
 ;; Package-Requires: ((emacs "29.1") (acp "0.7.1"))
 
 ;; This file is not part of GNU Emacs.
