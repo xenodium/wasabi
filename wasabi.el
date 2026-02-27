@@ -615,9 +615,17 @@ Calls ON-FAILURE with error if download fails."
    :client (map-elt wasabi--state :client)
    :on-error (lambda (error)
                (wasabi--log "Something is wrong %s" error)
-               (wasabi--set-status
-                :type 'error
-                :message (wasabi--refresh-error :message "Something is not right"))))
+               ;; wuzapi writes normal INFO/DEBUG/WARN logs to stderr, which newer acp.el
+               ;; versions treat as errors. Only treat it as a real error if the message
+               ;; doesn't look like a plain wuzapi log line (which start with a timestamp
+               ;; or JSON level field, not an actual error condition).
+               (let* ((msg (or (map-elt error 'message) ""))
+                      (looks-like-log (or (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" msg)
+                                          (string-match-p "\"level\":" msg))))
+                 (unless looks-like-log
+                   (wasabi--set-status
+                    :type 'error
+                    :message (wasabi--refresh-error :message "Something is not right"))))))
   (acp-subscribe-to-notifications
    :client (map-elt wasabi--state :client)
    :on-notification (lambda (notification)
