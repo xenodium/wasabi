@@ -682,6 +682,13 @@ Calls ON-FAILURE with error if download fails."
                              (wasabi--set-status
                               :type 'error
                               :message (wasabi--refresh-error :message "Couldn't connect")))
+                            ((equal (map-elt notification 'method) "ClientOutdated")
+                             (map-put! (wasabi--state) :connected nil)
+                             (wasabi--log "WhatsApp rejected the connection: client outdated")
+                             (wasabi--set-status
+                              :type 'error
+                              :message (wasabi--refresh-error
+                                        :message "wuzapi is outdated and was rejected by WhatsApp\nUpdate wuzapi (e.g. brew upgrade wuzapi) and try again")))
                             ((equal (map-elt notification 'method) "Disconnected")
                              (map-put! (wasabi--state) :connected nil)
                              (wasabi--set-status
