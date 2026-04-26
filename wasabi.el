@@ -173,9 +173,8 @@ For silent progression, set :silent-refresh in state before calling."
                         :message status-message
                         :silent (map-elt (wasabi--state) :silent-refresh)))
 
-  ;; Silent flag no longer necessary after ready. Clear it.
   (when (eq status-type 'ready)
-    (map-delete (wasabi--state) :silent-refresh))
+    (map-put! (wasabi--state) :silent-refresh nil))
 
   (cond
    ;; Step 1: Create client
@@ -843,7 +842,8 @@ The :connected flag tracks WhatsApp connection state (updated by notifications).
         ;;  ("987654321@g.us" . [...])
         ;;  ...)
         (cons :chats nil)
-        (cons :groups nil)))
+        (cons :groups nil)
+        (cons :silent-refresh nil)))
 
 (cl-defun wasabi--make-status (&key type message)
   "Create a status object with TYPE and optional MESSAGE.
