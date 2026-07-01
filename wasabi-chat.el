@@ -83,6 +83,10 @@ Keys:
   "<tab>" #'wasabi-chat-next-actionable
   "<backtab>" #'wasabi-chat-previous-actionable)
 
+(defvar-keymap wasabi-chat-image-mode-map
+  :doc "Keymap for the buffer where media is opened from the wasabi-chat."
+  "q" #'quit-window)
+
 ;; Parsing functions - convert protocol structures to internal format
 
 (defun wasabi-chat--parse-content (p-message)
@@ -431,6 +435,10 @@ Shows different bindings depending on whether point is in input area."
   (setq-local inhibit-read-only nil)
   (add-hook 'post-command-hook #'wasabi-chat--update-header-line nil t)
   (wasabi-chat--update-header-line))
+
+(define-derived-mode wasabi-chat-image-mode fundamental-mode "Wasabi Photo"
+  "Major mode for displaying images opened from the chat conversations.
+\\{wasabi-chat-image-mode-map}")
 
 (defun wasabi-chat--in-input-area-p ()
   "Return non-nil if point is in the input area."
@@ -1000,9 +1008,8 @@ FILE-SHA256 is used to create a unique filename."
     (with-current-buffer photo-buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (fundamental-mode)
+        (wasabi-chat-image-mode)
         (setq buffer-read-only t)
-        (local-set-key (kbd "q") #'quit-window)
         (insert (propertize "q" 'face 'help-key-binding) " to close")
         (insert "\n\n")))
     (switch-to-buffer photo-buffer)
@@ -1017,7 +1024,7 @@ FILE-SHA256 is used to create a unique filename."
       (with-current-buffer photo-buffer
         (let ((inhibit-read-only t))
           (goto-char (point-max))
-          (insert (propertize "🌄" 'display image))
+          (insert-image image)
           (insert "\n")
           (goto-char (point-min)))))))
 
