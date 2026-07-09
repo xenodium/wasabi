@@ -46,6 +46,11 @@ This can be:
     (function :tag "Custom function"))
   :group 'wasabi)
 
+(defcustom wasabi-message-notification-private t
+  "If non-nil, do not include messages content in notification."
+  :type 'boolean
+  :group 'wasabi)
+
 (defun wasabi--notify (message)
   "Display a notification with MESSAGE if needed."
   (when wasabi-message-notification-function
@@ -74,17 +79,22 @@ This can be:
         (notifications-notify
          :title (map-elt message :sender-name)
          :body
-         (concat
-          "Reacted to "
-          (wasabi--get-msg-content (map-elt message :target-id))
-          " with: "
-          (map-elt message :emoji))
+		 (if wasabi-message-notification-private
+			 "Reacted to a message"
+           (concat
+			"Reacted to "
+			(wasabi--get-msg-content (map-elt message :target-id))
+			" with: "
+			(map-elt message :emoji)))
          :app-name "Wasabi"
          :app-icon (wasabi-icon--svg-file)
          :urgency 'normal)
       (notifications-notify
        :title (map-elt message :sender-name)
-       :body (map-elt message :content)
+       :body
+	   (if wasabi-message-notification-private
+		   "Sent a new message"
+		 (map-elt message :content))
        :app-name "Wasabi"
        :app-icon (wasabi-icon--svg-file)
        :urgency 'normal))))
@@ -96,16 +106,21 @@ This can be:
         (knockknock-notify
          :title (map-elt message :sender-name)
          :message
-         (concat
-          "Reacted to "
-          (wasabi--get-msg-content (map-elt message :target-id))
-          " with: "
-          (map-elt message :emoji))
+		 (if wasabi-message-notification-private
+			 "Reacted to a message"
+           (concat
+			"Reacted to "
+			(wasabi--get-msg-content (map-elt message :target-id))
+			" with: "
+			(map-elt message :emoji)))
          :app-name "Wasabi"
          :icon-file (wasabi-icon--svg-file))
       (knockknock-notify
        :title (map-elt message :sender-name)
-       :message (map-elt message :content)
+       :message
+	   (if wasabi-message-notification-private
+		   "Sent a new message"
+		 (map-elt message :content))
        :app-name "Wasabi"
        :icon-file (wasabi-icon--svg-file)))))
 
